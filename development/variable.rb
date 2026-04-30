@@ -1,0 +1,2 @@
+name = "kota"
+puts name
