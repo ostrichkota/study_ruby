@@ -4,4 +4,5 @@ def review_average
   total / count
 end
 
-p review_average
+result = review_average
+p result
