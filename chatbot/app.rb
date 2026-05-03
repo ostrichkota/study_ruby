@@ -70,11 +70,13 @@ post '/callback' do
             temperature: 0.7
           }
         )
-        message = response["choices"].map { |choice| choice["message"]["content"].join }
+        c = response.dig('choices', 0, 'message', 'content') ||
+            response.dig(:choices, 0, :message, :content)
+        message_text = (c.is_a?(Array) ? c.join : c).to_s
         client.reply_message(
           reply_message_request: Line::Bot::V2::MessagingApi::ReplyMessageRequest.new(
             reply_token: event.reply_token,
-            messages: [{ type: 'text', text: message }]
+            messages: [{ type: 'text', text: message_text }]
           )
         )
       end
