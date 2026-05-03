@@ -1,8 +1,0 @@
-# https://render.com/docs/blueprint-spec
-services:
-  - type: web
-    name: study-ruby-chatbot
-    runtime: ruby
-    rootDir: chatbot
-    buildCommand: bundle install
-    startCommand: bundle exec rackup config.ru -o 0.0.0.0 -p $PORT
