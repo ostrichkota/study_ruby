@@ -5,5 +5,6 @@ gem "sinatra"
 gem "rackup"
 gem "puma"
 gem "line-bot-api"
+gem "ruby-openai"
 
 # gem "rails"

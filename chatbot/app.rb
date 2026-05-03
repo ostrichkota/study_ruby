@@ -3,6 +3,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 require 'line/bot'
+require 'openai'
 
 # LINE Webhook は JSON POST で Referer が付かないため JsonCsrf のみ除外
 configure do
@@ -61,11 +62,19 @@ post '/callback' do
     when Line::Bot::V2::Webhook::MessageEvent
       case event.message.type
       when 'text'
-        message = { type: 'text', text: event.message.text }
+        openai = OpenAI::Client.new(access_token: ENV['OPENAI_API_KEY'])
+        response = openai.chat(
+          parameters: {
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: event.message.text }],
+            temperature: 0.7
+          }
+        )
+        message = response["choices"].map { |choice| choice["message"]["content"].join }
         client.reply_message(
           reply_message_request: Line::Bot::V2::MessagingApi::ReplyMessageRequest.new(
             reply_token: event.reply_token,
-            messages: [message]
+            messages: [{ type: 'text', text: message }]
           )
         )
       end
