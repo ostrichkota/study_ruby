@@ -4,7 +4,7 @@ require 'uri'
 require 'json'
 require 'line/bot'
 
-# LINE の Webhook は JSON POST で Referer が付かないため、JsonCsrf だけ外す
+# LINE Webhook は JSON POST で Referer が付かないため JsonCsrf のみ除外
 configure do
   set :protection, except: [:json_csrf]
 end
@@ -45,27 +45,29 @@ end
 
 post '/callback' do
   body = request.body.read
+  # V1 の Client 相当を parser + client に分割（署名は parser が担当）
+  parser = Line::Bot::V2::WebhookParser.new(channel_secret: ENV['LINE_CHANNEL_SECRET'])
+  client = Line::Bot::V2::MessagingApi::ApiClient.new(channel_access_token: ENV['LINE_CHANNEL_TOKEN'])
 
-  client = Line::Bot::Client.new { |config|
-    config.channel_id = ENV['LINE_CHANNEL_ID']
-    config.channel_secret = ENV['LINE_CHANNEL_SECRET']
-    config.channel_token = ENV['LINE_CHANNEL_TOKEN']
-  }
+  events =
+    begin
+      parser.parse(body: body, signature: request.env['HTTP_X_LINE_SIGNATURE'])
+    rescue Line::Bot::V2::WebhookParser::InvalidSignatureError
+      halt 400, 'Bad Request'
+    end
 
-  signature = request.env['HTTP_X_LINE_SIGNATURE']
-  halt 400, 'Bad Request' unless client.validate_signature(body, signature)
-
-  events = client.parse_events_from(body)
   events.each do |event|
     case event
-    when Line::Bot::Event::Message
-      case event.type
-      when Line::Bot::Event::MessageType::Text
-        message = {
-          type: 'text',
-          text: event.message['text']
-        }
-        client.reply_message(event.reply_token, message)
+    when Line::Bot::V2::Webhook::MessageEvent
+      case event.message.type
+      when 'text'
+        message = { type: 'text', text: event.message.text }
+        client.reply_message(
+          reply_message_request: Line::Bot::V2::MessagingApi::ReplyMessageRequest.new(
+            reply_token: event.reply_token,
+            messages: [message]
+          )
+        )
       end
     end
   end
