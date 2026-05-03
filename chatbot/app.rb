@@ -47,20 +47,22 @@ post '/callback' do
     config.channel_token = ENV['LINE_CHANNEL_TOKEN']
   }
   client.parse_events_from(json).each do |event|
-  unless client.validate_signature(body, request.env['HTTP_X_LINE_SIGNATURE'])
-    error 400 do 'Bad Request' end
-    end
-    events = client.parse_events_from(body)
-    events.each do |event|
-      case event
-      when Line::Bot::Event::Message
-        message{
-          type: 'text',
-          text: event.message['text']
-        }
-        client.reply_message(event['replyToken'], message)
+    unless client.validate_signature(body, request.env['HTTP_X_LINE_SIGNATURE'])
+      error 400 do 
+        'Bad Request' 
       end
-      "ok"
     end
+  end
+  events = client.parse_events_from(body)
+  events.each do |event|
+    case event
+    when Line::Bot::Event::Message
+      message = {
+        type: 'text',
+        text: event.message['text']
+      }
+      client.reply_message(event['replyToken'], message)
+    end
+    "ok"
   end
 end
