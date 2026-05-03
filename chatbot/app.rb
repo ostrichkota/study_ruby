@@ -4,6 +4,11 @@ require 'uri'
 require 'json'
 require 'line/bot'
 
+# LINE の Webhook は JSON POST で Referer が付かないため、JsonCsrf だけ外す
+configure do
+  set :protection, except: [:json_csrf]
+end
+
 # set :host_authorization, { permitted_hosts: [] }
 
 get '/' do
@@ -40,29 +45,30 @@ end
 
 post '/callback' do
   body = request.body.read
-  json = JSON.parse(body)
+
   client = Line::Bot::Client.new { |config|
     config.channel_id = ENV['LINE_CHANNEL_ID']
     config.channel_secret = ENV['LINE_CHANNEL_SECRET']
     config.channel_token = ENV['LINE_CHANNEL_TOKEN']
   }
-  client.parse_events_from(json).each do |event|
-    unless client.validate_signature(body, request.env['HTTP_X_LINE_SIGNATURE'])
-      error 400 do 
-        'Bad Request' 
-      end
-    end
-  end
+
+  signature = request.env['HTTP_X_LINE_SIGNATURE']
+  halt 400, 'Bad Request' unless client.validate_signature(body, signature)
+
   events = client.parse_events_from(body)
   events.each do |event|
     case event
     when Line::Bot::Event::Message
-      message = {
-        type: 'text',
-        text: event.message['text']
-      }
-      client.reply_message(event['replyToken'], message)
+      case event.type
+      when Line::Bot::Event::MessageType::Text
+        message = {
+          type: 'text',
+          text: event.message['text']
+        }
+        client.reply_message(event.reply_token, message)
+      end
     end
-    "ok"
   end
+
+  'OK'
 end
